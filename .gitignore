@@ -8,3 +8,6 @@ build/
 dist/
 data/*
 !data/.gitkeep
+backups/
+logs/
+.cloudflared/

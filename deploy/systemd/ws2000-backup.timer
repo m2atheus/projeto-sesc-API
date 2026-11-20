@@ -1,0 +1,9 @@
+[Unit]
+Description=Backup diário da WS-2000
+
+[Timer]
+OnCalendar=*-*-* 02:15:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,17 @@
+<!-- WinSW 2.x. Copie um XML por serviço, com o mesmo nome-base do executável. -->
+<service>
+  <id>ws2000-ingest</id>
+  <name>WS-2000 Ingestão</name>
+  <description>Recebe as leituras do console na rede local.</description>
+  <executable>C:\ws2000\.venv\Scripts\python.exe</executable>
+  <arguments>-m app.serve ingest</arguments>
+  <workingdirectory>C:\ws2000</workingdirectory>
+  <startmode>Automatic</startmode>
+  <onfailure action="restart" delay="10 sec"/>
+  <stoptimeout>45 sec</stoptimeout>
+  <logpath>C:\ws2000\logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+</service>

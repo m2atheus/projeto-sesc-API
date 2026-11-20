@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 from pydantic.fields import FieldInfo
@@ -19,6 +19,22 @@ class StationOut(BaseModel):
     created_at: AwareDatetime = Field(description="Instante de cadastro da estação em UTC.")
     updated_at: AwareDatetime = Field(description="Instante da última atualização em UTC.")
     last_seen_at: AwareDatetime = Field(description="Instante da última transmissão aceita em UTC.")
+
+
+class PublicStation(BaseModel):
+    id: int
+    name: str
+    model: str
+    is_simulated: bool
+    last_seen_at: AwareDatetime = Field(description="Última comunicação aceita, em UTC.")
+    communication: Literal["online", "delayed", "offline"]
+    seconds_since_contact: int = Field(description="Tempo desde o último contato, em segundos.")
+    last_measured_at_utc: AwareDatetime | None = Field(description="Maior instante de medição em UTC.")
+    seconds_since_measurement: int | None = Field(description="Idade da medição em segundos. Negativa indica relógio adiantado.")
+
+
+class PublicError(BaseModel):
+    detail: str
 
 
 class Measurements(BaseModel):

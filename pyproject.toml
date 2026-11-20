@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ws2000-weather-api"
-version = "0.1.0"
+version = "0.2.0"
 description = "Recepção local de observações meteorológicas Ambient Weather"
 requires-python = ">=3.12"
 dependencies = [

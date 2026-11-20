@@ -46,6 +46,7 @@ class Observation(Base):
     __table_args__ = (
         UniqueConstraint("station_id", "measured_at_utc", name="uq_observation_station_time"),
         Index("ix_observations_received", "station_id", "received_at_utc", "id"),
+        Index("ix_observations_measured", "measured_at_utc"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

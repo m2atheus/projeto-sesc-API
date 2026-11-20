@@ -23,6 +23,21 @@ def get_station(db: Session, station_id: int) -> Station | None:
     return db.get(Station, station_id)
 
 
+def station_activity(db: Session, *, station_id: int | None = None, limit: int = 1, offset: int = 0):
+    measured = select(func.max(Observation.measured_at_utc)).where(
+        Observation.station_id == Station.id
+    ).scalar_subquery()
+    query = select(Station, measured).order_by(Station.id).limit(limit).offset(offset)
+    if station_id is not None:
+        query = query.where(Station.id == station_id)
+    return db.execute(query).all()
+
+
+def observation_version(db: Session) -> int:
+    # Indexed primary key. Observations are append-only, including late uploads.
+    return db.scalar(select(func.max(Observation.id))) or 0
+
+
 def conditions(station_id: int, period: Period):
     filters = [Observation.station_id == station_id]
     if period.start is not None:
@@ -53,7 +68,7 @@ def history(db: Session, station_id: int, period: Period, offset: int, limit: in
 
 def batches(db: Session, station_id: int, period: Period) -> Iterator[Sequence[Observation]]:
     query = chronological(station_id, period).execution_options(yield_per=256)
-    return db.scalars(query).partitions(256)
+    yield from db.scalars(query).partitions(256)
 
 
 def summary(db: Session, station_id: int, period: Period) -> Summary:

@@ -1,0 +1,11 @@
+[Unit]
+Description=Backup online do SQLite da WS-2000
+
+[Service]
+Type=oneshot
+User=ws2000
+Group=ws2000
+WorkingDirectory=/opt/ws2000
+ExecStart=/opt/ws2000/.venv/bin/python scripts/backup_sqlite.py
+UMask=0077
+NoNewPrivileges=yes

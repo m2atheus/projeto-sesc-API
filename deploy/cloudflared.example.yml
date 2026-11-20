@@ -1,0 +1,9 @@
+# Substitua os marcadores na cópia privada mantida pela TI.
+tunnel: TUNNEL_UUID
+credentials-file: /etc/cloudflared/TUNNEL_UUID.json
+
+ingress:
+  - hostname: clima.example.org
+    path: ^/api/v1/.*
+    service: http://127.0.0.1:8080
+  - service: http_status:404

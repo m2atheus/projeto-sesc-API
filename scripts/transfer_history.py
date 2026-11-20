@@ -21,8 +21,9 @@ def transfer(source_url: str, target_url: str) -> dict[str, int]:
         with reader.connect() as src, writer.begin() as dest:
             src.exec_driver_sql("BEGIN")  # Snapshot including SELECT with sqlite3's legacy transaction mode.
             revision = text("SELECT version_num FROM alembic_version")
-            if src.scalar(revision) != "0001_weather" or dest.scalar(revision) != "0001_weather":
-                raise ValueError("Esta versão do importador requer revisão 0001_weather nas duas bases")
+            version = src.scalar(revision)
+            if version not in {"0001_weather", "0002_time_index"} or dest.scalar(revision) != version:
+                raise ValueError("As duas bases devem usar a mesma revisão suportada")
             dest.execute(text("LOCK TABLE stations, observations IN ACCESS EXCLUSIVE MODE"))
             tables = (Station.__table__, Observation.__table__)
             for table in tables:

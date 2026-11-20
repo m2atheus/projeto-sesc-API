@@ -1,0 +1,22 @@
+[Unit]
+Description=WS-2000 FastAPI (%i)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=ws2000
+Group=ws2000
+WorkingDirectory=/opt/ws2000
+ExecStart=/opt/ws2000/.venv/bin/python -m app.serve %i
+Restart=always
+RestartSec=10
+TimeoutStopSec=45
+UMask=0027
+NoNewPrivileges=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

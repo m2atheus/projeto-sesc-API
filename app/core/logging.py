@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import UTC, datetime
 
 logger = logging.getLogger("weather")
 logger.setLevel(logging.INFO)
@@ -9,4 +10,5 @@ logger.propagate = False
 
 
 def log(event: str, *, level: int = logging.INFO, **details: object) -> None:
-    logger.log(level, json.dumps({"event": event, **details}, ensure_ascii=True, default=str))
+    logger.log(level, json.dumps({"at": datetime.now(UTC).isoformat(), "event": event, **details},
+                                 ensure_ascii=True, default=str))
