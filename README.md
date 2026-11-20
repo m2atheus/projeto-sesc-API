@@ -1,35 +1,86 @@
-# API meteorológica WS-2000
+<div align="center">
 
-O console Ambient Weather envia as leituras por HTTP ao computador da rede local. A API FastAPI recebe cada transmissão, converte as unidades, guarda a observação e seus parâmetros originais no SQLite e oferece consultas em JSON e CSV. Após a instalação das dependências, o serviço e o Swagger funcionam sem internet.
+  <!-- Espaço para o logotipo do projeto. -->
+  <h1>Monitoramento Meteorológico WS-2000</h1>
 
-## Executar no Windows
+  <p>API local para acompanhar a estação Ambient Weather, consultar o histórico em unidades métricas e exportar as medições em CSV.</p>
 
-Na raiz do repositório, com Python 3.12 ou superior no PATH, execute no PowerShell:
+  <p>
+    <a href="#instalacao"><img src="https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&amp;logoColor=white" alt="Python 3.12 ou superior"></a>
+    <a href="#consultas"><img src="https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&amp;logoColor=white" alt="API com FastAPI"></a>
+    <a href="#armazenamento"><img src="https://img.shields.io/badge/Banco_local-SQLite-003B57?logo=sqlite&amp;logoColor=white" alt="Banco local SQLite"></a>
+    <a href="#postgresql"><img src="https://img.shields.io/badge/Migra%C3%A7%C3%A3o-PostgreSQL-4169E1?logo=postgresql&amp;logoColor=white" alt="Migração para PostgreSQL"></a>
+  </p>
+
+  <p>
+    <a href="#instalacao">Começar agora</a> ·
+    <a href="#console">Conectar a estação</a> ·
+    <a href="#simulador">Testar com o simulador</a> ·
+    <a href="#consultas">Consultar a API</a>
+  </p>
+</div>
+
+## O problema
+
+O valor de chuva que o console envia a cada minuto pode ser o acumulado do dia. Somar essas leituras em uma planilha multiplicaria a chuva registrada. Uma transmissão repetida pelo Wi-Fi também pode parecer uma nova amostra. Para analisar o tempo em um período, é preciso saber o que cada sensor mediu, em qual unidade e em que instante.
+
+## A solução
+
+A WS-2000 envia as leituras por Wi-Fi para um computador da rede local. A API converte as unidades na chegada, registra os horários de medição e de recebimento em UTC e guarda uma observação por estação e instante de medição. Após a instalação, a coleta e o Swagger funcionam mesmo sem acesso à internet.
+
+| Etapa | O que acontece |
+| --- | --- |
+| **Coleta** | O console reúne os sensores disponíveis e transmite os parâmetros por HTTP para `/data/report/`. |
+| **Armazenamento** | O backend valida os campos, grava as medições em unidades métricas e conserva os parâmetros originais em `raw_payload` para auditoria. |
+| **Consulta** | Pelo Swagger ou pela API REST, é possível conferir a última leitura, filtrar o histórico, calcular um resumo e baixar o período em CSV. |
+
+## Sumário
+
+- [Instalação no Windows ou Linux](#instalacao)
+- [Configuração do console WS-2000](#console) e [ensaio com o simulador](#simulador)
+- [Consultas, unidades e exportação CSV](#consultas)
+- [Protocolo e regras de armazenamento](#armazenamento)
+- [Configuração da rede local](#rede) e [diagnóstico](#diagnostico)
+- [Testes automatizados](#testes) e [migração para PostgreSQL](#postgresql)
+- [Organização do repositório](#estrutura) e [parceria](#parceria)
+
+<a id="instalacao"></a>
+
+## Instalação
+
+Use Python **3.12 ou superior** e execute os comandos na raiz do repositório. O SQLite acompanha o Python. Para receber dados reais, o computador precisa estar acessível ao console pela rede local. Para experimentar a API, basta usar o simulador.
+
+### Windows · PowerShell
 
 ```powershell
 python --version
 python -m venv .venv
 .\.venv\Scripts\python -m pip install -e ".[test]"
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 .\.venv\Scripts\python -m alembic upgrade head
 .\.venv\Scripts\python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-proxy-headers
 ```
 
-Faça a cópia de `.env.example` apenas na primeira instalação. Os comandos usam o interpretador do ambiente diretamente, inclusive quando a política do PowerShell impede a ativação.
+Os comandos usam o interpretador do ambiente virtual diretamente. Mantenha o terminal do Uvicorn aberto enquanto estiver recebendo dados.
 
-## Executar no Linux
+<details>
+<summary><strong>Linux · Bash</strong></summary>
 
 ```bash
 python3 --version
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e '.[test]'
-cp .env.example .env
+test -f .env || cp .env.example .env
 python -m alembic upgrade head
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-proxy-headers
 ```
 
-Abra o [Swagger local](http://127.0.0.1:8000/docs) e a [prontidão do serviço](http://127.0.0.1:8000/ready). O Alembic cria o esquema em `data/weather.db`. Execute a migração antes de cada atualização da aplicação.
+</details>
+
+O Alembic cria o esquema em `data/weather.db`. Aplique as migrações antes de iniciar uma versão atualizada da API. Com o servidor em execução, confira se o banco responde e explore os endpoints no navegador. [Prontidão do serviço](http://127.0.0.1:8000/ready) · [Swagger local](http://127.0.0.1:8000/docs)
+
+<a id="console"></a>
 
 ## Conectar o console físico
 
@@ -47,6 +98,8 @@ Em **Setup → Weather Server → Customized**, habilite o envio personalizado, 
 Substitua o IP ilustrativo pelo IPv4 da interface do computador que atende a estação. O intervalo de 60 s depende das opções do console. Reserve esse IP no DHCP para continuar recebendo após reinicializações. Aguarde pelo menos um intervalo e consulte `GET /api/v1/stations` para obter o ID da estação cadastrada pelo primeiro envio válido. [Manual oficial WS-2000 v2.20, pp. 48–50](https://ambientweather.com/mwdownloads/download/link/id/1113/#page=48)
 
 O endereço de escuta `127.0.0.1` atende somente o próprio computador. Com `0.0.0.0`, o Uvicorn escuta nas interfaces disponíveis. O console precisa alcançar o IP real do computador na mesma LAN ou por uma rota permitida. Libere TCP 8000 no firewall apenas para os equipamentos que precisam dele. Use `--no-proxy-headers` na ligação direta para que a lista de redes use a origem da conexão TCP.
+
+<a id="simulador"></a>
 
 ## Conferir o fluxo com o simulador
 
@@ -75,6 +128,8 @@ GET /data/report/?MAC=02%3A00%3A00%3A00%3A20%3A00&dateutc=2026-11-20+14%3A30%3A0
 
 A resposta padrão é HTTP 200 com texto `OK`. Em `/api/v1/stations/1/latest`, esses valores correspondem a 30 °C, 60%, 5,36448 m/s e 2,54 mm. Use o ID devolvido por `/api/v1/stations` se houver outras estações. Ao encerrar o ensaio, feche o terminal do receptor de desenvolvimento para descartar suas variáveis temporárias.
 
+<a id="consultas"></a>
+
 ## Consultas e exportação
 
 O frontend recebe temperatura em °C, velocidade e rajada em m/s, direção em graus, chuva acumulada em mm, pressão em hPa, umidade em %, radiação solar em W/m² e índice UV adimensional. As observações e as estatísticas usam essas unidades desde a gravação. No OpenAPI, cada campo meteorológico declara sua unidade na descrição e na propriedade `x-unit`. O CSV inclui a unidade no cabeçalho.
@@ -102,7 +157,9 @@ curl -o novembro.csv 'http://127.0.0.1:8000/api/v1/stations/1/export.csv?start=2
 
 No PowerShell, use `Invoke-RestMethod` para JSON e `Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/v1/stations/1/export.csv' -OutFile leituras.csv` para o CSV. A exportação é transmitida em lotes de 256 linhas. No Excel ou LibreOffice, selecione UTF-8, separador vírgula e ponto decimal na importação.
 
-## Protocolo, unidades e persistência
+<a id="armazenamento"></a>
+
+## Protocolo e regras de armazenamento
 
 O receptor aceita GET em `/data/report/` e `/data/report`, sem redirecionamento. O MAC normalizado identifica a estação. `dateutc` segue `YYYY-MM-DD HH:MM:SS` e representa UTC. O corpo de confirmação do firmware não aparece definido nas referências consultadas. A implementação envia texto simples configurável após o commit, inclusive para duplicatas. O modo implementado é o upload HTTP com parâmetros legíveis na query. [Documentação oficial, seção Awnet Advanced Settings](https://ambientweather.com/support/aw-misc/)
 
@@ -116,11 +173,18 @@ O receptor aceita GET em `/data/report/` e `/data/report`, sem redirecionamento.
 | baromabsin, baromrelin | absolute_pressure_hpa, relative_pressure_hpa | inHg × 33,8638866667 |
 | uv, solarradiation | uv_index, solar_radiation_wm2 | índice UV e W/m² |
 
-Os acumuladores de chuva são preservados por intervalo. O resumo não os soma. Zero, valor ausente e número inválido têm tratamentos distintos. A aplicação conserva a precisão do tipo de ponto flutuante do banco e devolve `null` para sensores ausentes. Um campo conhecido presente com valor inválido rejeita a transmissão inteira com 422. MAC e data sem parâmetros adicionais também recebem 422. Uma transmissão só com sensores desconhecidos é preservada para análise.
+| Regra | Comportamento |
+| --- | --- |
+| **Chuva acumulada** | Cada acumulador conserva seu intervalo. Por exemplo, se o acumulado diário aparece como 5 mm em três leituras seguidas, o registro mais recente continua indicando 5 mm naquele dia. |
+| **Sensores opcionais** | Uma medição igual a zero vale zero. Um sensor ausente aparece como `null`. O banco conserva a precisão de ponto flutuante dos valores convertidos. |
+| **Validação** | Um valor inválido ou uma chave repetida entre os campos conhecidos causa HTTP 422. Uma transmissão contendo apenas MAC e data também recebe 422. |
+| **Rastreabilidade** | `raw_payload` preserva os parâmetros decodificados, inclusive a sequência de valores de uma chave desconhecida repetida. O log identifica os nomes dos campos desconhecidos. Uma transmissão com identificação válida e apenas sensores desconhecidos fica disponível para diagnóstico no banco. |
+| **Retransmissão** | Estação e observação são gravadas na mesma transação. A chave única `(station_id, measured_at_utc)` preserva a primeira leitura aceita naquele segundo, mesmo que uma retransmissão simultânea traga campos adicionais. Essa chave também indexa a consulta por período. |
+| **Horários** | `measured_at_utc` vem do console. `received_at_utc` registra a primeira recepção da leitura. `last_seen_at` acompanha o contato mais recente com a estação, inclusive reenvios. |
 
-`raw_payload` guarda o mapa JSON dos parâmetros decodificados, com grafia e valores originais. Chaves desconhecidas repetidas guardam a sequência de valores. Repetições de campos conhecidos são ambíguas e recebem 422. O log identifica os nomes desconhecidos. O payload bruto fica no banco, fora das respostas de consulta e do CSV. Para mapear um novo sensor, acrescente a especificação em `fields.py`, a coluna e o schema correspondentes, uma migração e um teste com uma transmissão representativa.
+Para acrescentar suporte a um sensor, inclua seu mapeamento no catálogo, adicione a coluna e o campo no schema de resposta, crie a migração e teste com uma transmissão representativa. [Catálogo de sensores](app/integrations/ambient_weather/fields.py) · [Schemas e unidades públicas](app/schemas.py)
 
-Cada upload grava estação e observação na mesma transação. A restrição única em `(station_id, measured_at_utc)` arbitra a concorrência e indexa a busca por período. Para duas transmissões da mesma estação no mesmo segundo, prevalece o primeiro payload aceito, inclusive se a segunda trouxer sensores adicionais. `received_at_utc` conserva a primeira recepção da observação e `last_seen_at` acompanha a comunicação mais recente. SQLite e PostgreSQL devolvem horários com UTC explícito.
+<a id="rede"></a>
 
 ## Configuração e segurança na LAN
 
@@ -139,6 +203,8 @@ As configurações vêm do ambiente ou do arquivo `.env`. Reinicie o processo ap
 
 Mantenha a porta fora da internet pública, sem encaminhamento no roteador. As consultas da primeira versão são abertas aos clientes com acesso à porta. CORS é uma política de navegador. Para publicação futura, aplique HTTPS, autenticação, permissões e limites de taxa no roteador de consultas ou no proxy, mantendo o receptor da estação em rede privada.
 
+<a id="diagnostico"></a>
+
 ## Diagnóstico de ponta a ponta
 
 1. **IP do servidor.** No Windows, use `ipconfig` e identifique o IPv4 da interface da LAN. No Linux, use `ip -br addr`. Confira IP, porta e caminho no console.
@@ -152,11 +218,15 @@ Mantenha a porta fora da internet pública, sem encaminhamento no roteador. As c
 python -c "import sqlite3; c=sqlite3.connect('file:data/weather.db?mode=ro', uri=True); print(c.execute('SELECT station_id, count(*), max(measured_at_utc) FROM observations GROUP BY station_id').fetchall())"
 ```
 
-## Testes
+<a id="testes"></a>
+
+## Testes automatizados
 
 No Windows, execute `.\.venv\Scripts\python -m pytest -q`. No Linux com ambiente ativo, use `python -m pytest -q`. Os testes HTTPX usam SQLite temporário criado pelas migrações, exercitam concorrência, rollback, consultas e CSV.
 
 O teste opcional de PostgreSQL usa `TEST_POSTGRES_URL=postgresql+psycopg://usuario:senha@localhost:5432/weather_test`. Use um banco de testes e um usuário com permissão de criar esquemas. O teste cria e remove seu próprio esquema exclusivo. Sem a variável, o Pytest pula esse teste.
+
+<a id="postgresql"></a>
 
 ## Transferir o histórico para PostgreSQL
 
@@ -181,6 +251,8 @@ O teste opcional de PostgreSQL usa `TEST_POSTGRES_URL=postgresql+psycopg://usuar
 3. Alembic cria o esquema. O script copia os registros em lotes, primeiro estações e depois observações, preservando IDs, chaves estrangeiras, horários e payload JSON. Ele exige a revisão inicial nas duas bases e tabelas de destino vazias. Confere as contagens e ajusta as sequências de IDs antes do commit.
 4. Compare as contagens informadas, o intervalo histórico, amostras de `latest` e linhas de CSV com o backup. Persista a nova `DATABASE_URL` no ambiente do serviço, reinicie e confirme `/ready` e o primeiro upload. Guarde o SQLite original. Durante o corte, leituras enviadas com o serviço parado dependem de reenvio pelo console. Para voltar após já receber dados novos em PostgreSQL, preserve essas leituras antes da troca.
 
+<a id="estrutura"></a>
+
 ## Organização do repositório
 
 ```text
@@ -199,3 +271,11 @@ data/                              bancos SQLite locais ignorados pelo Git
 .env.example                       configuração inicial
 pyproject.toml                     instalação e dependências
 ```
+
+<a id="parceria"></a>
+
+## Parceria
+
+<p align="center">
+  <img src="docs/imagens/parceria-ufrpe-uast-sesc.png" alt="Parceria entre a UFRPE, Unidade Acadêmica de Serra Talhada (UAST), e o Sesc" width="440">
+</p>
